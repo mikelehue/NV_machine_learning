@@ -6,3 +6,5 @@ Description: This script simulates a one qubit cluster sorter by means of a NV c
 Authors: Asier Mongelos and Miguel Lopez Varga
 Creation date: 2025-05-20
 """
+
+#Matrix Definition: 
