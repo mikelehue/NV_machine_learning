@@ -12,7 +12,7 @@ Creation date: 2025-05-20
 
 
 import numpy as np
-from scipy.linalg import expm
+from scipy.linalg import expm, sqrtm
 
 ##Operators##
 Sz = np.array([[1,0,0],[0,0,0],[0,0,-1]])
@@ -53,5 +53,47 @@ def Ry(alpha, Omega, B, detuning=0):
     
     U = expm(1j*H*t)
     return U
+
+
+
+def ProjX(rho):
+    ProjX = np.array([[1/2,1/2,0],[1/2,1/2,0],[0,0,0]])
+    
+    return np.trace(np.matmul(rho*ProjX))
+
+
+def ProjY(rho):
+    ProjY = np.array([[1/2,1j/2,0],[-1j/2,1/2,0],[0,0,0]])
+    
+    return np.trace(np.matmul(rho*ProjY))
+
+
+def ProjZ(rho):
+    return rho[1,1]
+
+
+
+
+def BlochCoordinates(rho):
+    x = ProjX(rho)
+    y = ProjY(rho)
+    z = ProjZ(rho)
+    
+    return np.array([x,y,z])
+
+
+
+def Fidelity(rho, target, pure=True):
+    
+    if pure:
+        f = np.trace(np.matmul(rho*target))
+    else:
+        f = np.matmul(sqrtm(target)*rho)
+        f = sqrtm(np.matmul(f*sqrtm(target)))
+        f = (np.trace(f))**2
+    
+    return f
+    
+    
 
 
