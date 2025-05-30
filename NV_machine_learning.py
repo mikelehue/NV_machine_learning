@@ -7,10 +7,6 @@ Authors: Asier Mongelos and Miguel Lopez Varga
 Creation date: 2025-05-20
 """
 
-
-
-
-
 import numpy as np
 from scipy.linalg import expm, sqrtm
 
@@ -41,7 +37,6 @@ def Rx(alpha, Omega, B, detuning=0):
     U = expm(1j*H*t)
     return U
 
-
 def Ry(alpha, Omega, B, detuning=0):
     #Physical parameters
     D = 2870        #MHz, Zer-field splitting.
@@ -54,25 +49,20 @@ def Ry(alpha, Omega, B, detuning=0):
     U = expm(1j*H*t)
     return U
 
-
-
+# These are the projectors over the X, Y, and Z axes of the Bloch sphere.
+# They are used to calculate the Bloch coordinates of a density matrix.
 def ProjX(rho):
     ProjX = np.array([[1/2,1/2,0],[1/2,1/2,0],[0,0,0]])
     
     return np.trace(np.matmul(rho*ProjX))
-
 
 def ProjY(rho):
     ProjY = np.array([[1/2,1j/2,0],[-1j/2,1/2,0],[0,0,0]])
     
     return np.trace(np.matmul(rho*ProjY))
 
-
 def ProjZ(rho):
     return rho[1,1]
-
-
-
 
 def BlochCoordinates(rho):
     x = ProjX(rho)
@@ -81,8 +71,7 @@ def BlochCoordinates(rho):
     
     return np.array([x,y,z])
 
-
-
+# Here we calculate the fidelity between two density matrices.
 def Fidelity(rho, target, pure=True):
     
     if pure:
@@ -93,7 +82,7 @@ def Fidelity(rho, target, pure=True):
         f = (np.trace(f))**2
     
     return f
-    
-    
 
-
+# This function calculates the distance between two points in thhe coordinate plane
+def Distance(x_1, x_2):
+    return float(np.sqrt((float(x_1[0])-float(x_2[0]))**2+(float(x_1[1])-float(x_2[1]))**2+(float(x_1[2])-float(x_2[2]))**2))
