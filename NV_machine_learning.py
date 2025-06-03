@@ -86,3 +86,40 @@ def Fidelity(rho, target, pure=True):
 # This function calculates the distance between two points in thhe coordinate plane
 def Distance(x_1, x_2):
     return float(np.sqrt((float(x_1[0])-float(x_2[0]))**2+(float(x_1[1])-float(x_2[1]))**2+(float(x_1[2])-float(x_2[2]))**2))
+
+def Centroide (x):
+    centroid = []
+    centroid= sum(x)
+    centroid= centroid /len(x)
+
+    return np.array(centroid)
+
+# This function tests the quantum states against the labels and returns the maximum fidelities and their corresponding indices.
+def Test(quantum_states, labels):
+    fidelities = np.matmul(quantum_states,labels)
+    fidelities = fidelities*np.conj(fidelities)
+    first_label = fidelities[0]
+    second_label = fidelities[1]
+    max_fidelities = [np.max([first_label[i], second_label[i]]) for i in range(len(fidelities[0]))]
+    arg_fidelities = [np.argmax([first_label[i], second_label[i]]) for i in range(len(fidelities[0]))]
+
+    return max_fidelities, arg_fidelities
+
+# This function computes the cost function for a batch of quantum states, coordinates, and labels.
+def CostFunction(quantum_states, coordinates, labels,_lambda=0):
+    # Compute prediction for each input in data batch
+    loss = 0  # initialize loss
+    fidelities, arg_fidelities = Test(quantum_states,labels)
+    coordinates = np.array(coordinates)
+    arg_fidelities = np.array(arg_fidelities)
+    for i in range(len(coordinates)):
+        f_i = fidelities[i]
+        for j in range(i + 1, (len(coordinates))):
+            f_j = fidelities[j]
+            if arg_fidelities[i] == arg_fidelities[j]:
+                delta_y = 1
+            else:
+                delta_y = 0
+            loss = loss + delta_y * (Distance(coordinates[i], coordinates[j]) + _lambda*Distance(coordinates[i], Centroide(coordinates[np.where(arg_fidelities == arg_fidelities[i])]))) * ((1 - f_i) * (1 - f_j))
+    
+    return np.real(loss / len(coordinates))
