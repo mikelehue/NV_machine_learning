@@ -9,6 +9,7 @@ Creation date: 2025-05-20
 
 import numpy as np
 from scipy.linalg import expm, sqrtm
+import math
 
 ##Operators##
 Sz = np.array([[1,0,0],[0,0,0],[0,0,-1]])
@@ -54,12 +55,12 @@ def Ry(alpha, Omega, B, detuning=0):
 def ProjX(rho):
     ProjX = np.array([[1/2,1/2,0],[1/2,1/2,0],[0,0,0]])
     
-    return np.trace(np.matmul(rho*ProjX))
+    return np.trace(np.matmul(rho,ProjX))
 
 def ProjY(rho):
     ProjY = np.array([[1/2,1j/2,0],[-1j/2,1/2,0],[0,0,0]])
     
-    return np.trace(np.matmul(rho*ProjY))
+    return np.trace(np.matmul(rho,ProjY))
 
 def ProjZ(rho):
     return rho[1,1]
@@ -75,10 +76,10 @@ def BlochCoordinates(rho):
 def Fidelity(rho, target, pure=True):
     
     if pure:
-        f = np.trace(np.matmul(rho*target))
+        f = np.trace(np.matmul(rho,target))
     else:
-        f = np.matmul(sqrtm(target)*rho)
-        f = sqrtm(np.matmul(f*sqrtm(target)))
+        f = np.matmul(sqrtm(target),rho)
+        f = sqrtm(np.matmul(f,sqrtm(target)))
         f = (np.trace(f))**2
     
     return f
@@ -123,21 +124,31 @@ def FibonacciSphere(samples):
 
 def StateLabels(number_labels):
     labels = []
-    points_x_labels, points_y_labels, points_z_labels = FibonacciSphere(number_labels)
-    for i in range(len(points_x_labels)):
-        c1_round, c2_round = CartToCoef(points_x_labels[i], points_y_labels[i], points_z_labels[i])
-        labels.append([[c1_round], [c2_round]])
+    points_x, points_y, points_z = FibonacciSphere(number_labels)
+    ket_1 = np.array([[1],[0],[0]])
+    ket_0 = np.array([[0],[1],[0]])
+    for i in range(len(points_x)):
+        state = points_x[i]*(ket_0+ket_1)/np.sqrt(2) + points_y[i]*(ket_0+1j*ket_1)/np.sqrt(2) + points_z[i]*ket_0
+        labels.append(np.matmul(state, np.matrix.conjugate(state).T))
     state_labels = np.array(labels, dtype=complex)
     return state_labels
 
 # This function tests the quantum states against the labels and returns the maximum fidelities and their corresponding indices.
 def Test(quantum_states, labels):
-    fidelities = np.matmul(quantum_states,labels)
-    fidelities = fidelities*np.conj(fidelities)
-    first_label = fidelities[0]
-    second_label = fidelities[1]
-    max_fidelities = [np.max([first_label[i], second_label[i]]) for i in range(len(fidelities[0]))]
-    arg_fidelities = [np.argmax([first_label[i], second_label[i]]) for i in range(len(fidelities[0]))]
+    print('shape of quantum states = ' + str(np.shape(quantum_states)))
+    print('shape of labels = ' + str(np.shape(labels)))
+    fidelities = np.zeros((len(quantum_states), len(labels)), dtype=complex)
+    for i in range(len(quantum_states)):
+        for j in range(len(labels)):
+            fidelities[i][j] = Fidelity(quantum_states[i], labels[j], pure=True)
+    fidelities = np.array(fidelities, dtype=complex)
+    max_fidelities = np.max(fidelities, axis=1)
+    arg_fidelities = np.argmax(fidelities, axis=1)
+    print('max fidelities = ' + str(max_fidelities))
+    print('arg fidelities = ' + str(arg_fidelities))
+    print('shape of max fidelities = ' + str(np.shape(max_fidelities)))
+    print('shape of arg fidelities = ' + str(np.shape(arg_fidelities)))
+    print('shape of fidelities = ' + str(np.shape(fidelities)))
 
     return max_fidelities, arg_fidelities
 
@@ -163,7 +174,7 @@ def CostFunction(quantum_states, coordinates, labels,_lambda):
 ############### Simulation of the cluster sorter ################
 ############### Data for the simulation ################
 # Number of labels
-number_labels = 4
+number_labels = 2
 # Initialize the labels
 labels = StateLabels(number_labels)
 # Choose the number of times the whole set of gates is applied
@@ -199,14 +210,113 @@ for i in range(number_clusters):
     for j in range(points_per_cluster):
         # Generate point with Gaussian distribution
         point = np.random.normal(loc=centers[i], scale=width)
+        print(point)
         coordinates.append([point[0], point[1], 0])
 # Convert coordinates to numpy array
 coordinates = np.array(coordinates)
-# Initialize quantum states
-quantum_states = np.zeros((N_points, 2, 1), dtype=complex)
+
 # Convert coordinates to quantum states
 # The idea is to start with a quantum state in the zero state of the bloch sphere
 # That is the state |0> = [1, 0, 0] and the we have to apply the gates to rotate the state to the desired point in the bloch sphere
 # The gates are the Rx and Ry functions defined above
 # So we start with the state |0>
-initial_state = np.array([[1], [0], [0]], dtype=complex)
+initial_state = np.array([[1, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=complex)
+
+# Initialize the quantum states list
+quantum_states_list = []
+
+# Generate the quantum states by applying the gates to the initial state, we apply the gates in the same order for all the points
+quantum_states = []
+for i in range(N_points):
+    # Start with the initial state
+    quantum_state = initial_state.copy()
+    # Apply the gates in the same order for all the points
+    # Apply the Rx gate
+    quantum_state = np.matmul(np.matmul(Rx(coordinates[i][0], Omega, B, detuning), quantum_state),np.matrix.conjugate(Rx(coordinates[i][0], Omega, B, detuning).T))
+    # Apply the Ry gate
+    quantum_state = np.matmul(np.matmul(Ry(coordinates[i][1], Omega, B, detuning), quantum_state),np.matrix.conjugate(Rx(coordinates[i][1], Omega, B, detuning).T))
+    # Append the quantum state to the list
+    quantum_states.append(quantum_state)
+
+# We save the quantum states in a list of quantum states
+quantum_states_list.append(quantum_states)
+
+# Save the first data
+cost_value = CostFunction(quantum_states, coordinates, labels, _lambda)
+print(f"Initial cost value: {cost_value}")
+
+# Initialize a cost list to store the cost values
+cost_list = []
+
+# Calculate the first fidelities and arg_fidelities
+fidelities, arg_fidelities = Test(quantum_states, labels)
+
+# Initialize the parameters for the optimization
+# Randomly initialize the parameters for the gates
+params = np.random.uniform(size=2) * 2 * np.pi
+# Initialize the gradient
+gradient = np.zeros_like(params)
+
+# Optimization loop
+for iteration in range(number_iterations):
+    # Calculate the cost function
+    cost_value = CostFunction(quantum_states, coordinates, labels, _lambda)
+    cost_list.append(cost_value)
+    
+    # Calculate the gradient
+    for i in range(len(params)):
+        # Perturb the parameter
+        params[i] += st
+        quantum_states_perturbed = []
+        for j in range(N_points):
+            quantum_state = initial_state.copy()
+            for k in range(number_labels):
+                quantum_state = np.matmul(Rx(params[j][0], Omega, B, detuning), quantum_state)
+                quantum_state = np.matmul(Ry(params[j][1], Omega, B, detuning), quantum_state)
+            quantum_states_perturbed.append(quantum_state)
+        perturbed_cost = CostFunction(quantum_states_perturbed, coordinates, labels, _lambda)
+        
+        # Calculate the gradient
+        gradient[i] = (perturbed_cost - cost_value) / st
+        
+        # Reset the parameter
+        params[i] -= st
+    
+    # Update the parameters using the gradient descent step
+    params -= lr * gradient
+    
+    print(f"Iteration {iteration + 1}, Cost: {cost_value}, Params: {params}")
+
+# After the optimization loop, we can print the final parameters and cost value
+print(f"Final parameters: {params}")
+print(f"Final cost value: {cost_value}")
+
+# Plot the cost function values over iterations
+import matplotlib.pyplot as plt
+plt.plot(cost_list)
+plt.xlabel('Iteration')
+plt.ylabel('Cost Value')
+plt.title('Cost Function Value Over Iterations')
+plt.grid()
+plt.show()
+
+# Now, plot the quantum states on the Bloch sphere with the arg_fidelities with different colors
+from mpl_toolkits.mplot3d import Axes3D
+def plot_bloch_sphere(quantum_states, arg_fidelities):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    
+    # Define colors for each label
+    colors = ['r', 'g', 'b', 'y']
+    
+    for i, state in enumerate(quantum_states):
+        x, y, z = BlochCoordinates(state)
+        ax.scatter(x, y, z, color=colors[arg_fidelities[i]], label=f'Point {i+1}')
+    
+    # Set labels
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.set_title('Bloch Sphere Representation of Quantum States')
+    
+    plt.show()
