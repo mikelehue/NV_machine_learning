@@ -127,7 +127,12 @@ def StateLabels(number_labels):
     points_x, points_y, points_z = FibonacciSphere(number_labels)
     ket_1 = np.array([[1],[0],[0]])
     ket_0 = np.array([[0],[1],[0]])
+    
     for i in range(len(points_x)):
+        #Rescale points to be in range 0,1
+        points_x[i] = (points_x[i]+1)/2
+        points_y[i] = (points_y[i]+1)/2
+        points_z[i] = (points_z[i]+1)/2
         #state = points_x[i]*(ket_0+ket_1)/np.sqrt(2) + points_y[i]*(ket_0+1j*ket_1)/np.sqrt(2) + points_z[i]*ket_0
         if points_z[i]!=0:
             state = np.sqrt(points_z[i])*ket_0 + ((2* points_x[i]-1) + 1j * (2* points_y[i]-1))/(2 * np.sqrt(points_z[i])) * ket_1
