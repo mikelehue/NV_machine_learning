@@ -55,15 +55,15 @@ def Ry(alpha, Omega, B, detuning=0):
 def ProjX(rho):
     ProjX = np.array([[1/2,1/2,0],[1/2,1/2,0],[0,0,0]])
     
-    return np.trace(np.matmul(rho,ProjX))
+    return np.real(np.trace(np.matmul(rho,ProjX)))
 
 def ProjY(rho):
     ProjY = np.array([[1/2,1j/2,0],[-1j/2,1/2,0],[0,0,0]])
     
-    return np.trace(np.matmul(rho,ProjY))
+    return np.real(np.trace(np.matmul(rho,ProjY)))
 
 def ProjZ(rho):
-    return rho[1,1]
+    return np.real(rho[1,1])
 
 def BlochCoordinates(rho):
     x = ProjX(rho)
@@ -144,8 +144,8 @@ def StateLabels(number_labels):
 
 # This function tests the quantum states against the labels and returns the maximum fidelities and their corresponding indices.
 def Test(quantum_states, labels):
-    print('shape of quantum states = ' + str(np.shape(quantum_states)))
-    print('shape of labels = ' + str(np.shape(labels)))
+    #print('shape of quantum states = ' + str(np.shape(quantum_states)))
+    #print('shape of labels = ' + str(np.shape(labels)))
     fidelities = np.zeros((len(quantum_states), len(labels)), dtype=complex)
     for i in range(len(quantum_states)):
         for j in range(len(labels)):
@@ -153,11 +153,11 @@ def Test(quantum_states, labels):
     fidelities = np.array(fidelities, dtype=complex)
     max_fidelities = np.max(fidelities, axis=1)
     arg_fidelities = np.argmax(fidelities, axis=1)
-    print('max fidelities = ' + str(max_fidelities))
-    print('arg fidelities = ' + str(arg_fidelities))
-    print('shape of max fidelities = ' + str(np.shape(max_fidelities)))
-    print('shape of arg fidelities = ' + str(np.shape(arg_fidelities)))
-    print('shape of fidelities = ' + str(np.shape(fidelities)))
+   # print('max fidelities = ' + str(max_fidelities))
+   # print('arg fidelities = ' + str(arg_fidelities))
+   # print('shape of max fidelities = ' + str(np.shape(max_fidelities)))
+   # print('shape of arg fidelities = ' + str(np.shape(arg_fidelities)))
+   # print('shape of fidelities = ' + str(np.shape(fidelities)))
 
     return max_fidelities, arg_fidelities
 
@@ -189,7 +189,7 @@ labels = StateLabels(number_labels)
 # Choose the number of times the whole set of gates is applied
 number_iterations = 50
 # Choose the step for calculate the gradient
-st = 0.01
+st = 0.001
 # Choose the value of the learning rate
 lr = 0.006
 # Choose the value of lambda for the cost function
@@ -278,16 +278,18 @@ for iteration in range(number_iterations):
         params[i] += st
         quantum_states_perturbed = []
         for j in range(N_points):
-            quantum_state = initial_state.copy()
+            #quantum_state = initial_state.copy()
+            quantum_state = quantum_states[j]            
             for k in range(number_labels):
-                quantum_state = np.matmul(Rx(params[j][0], Omega, B, detuning), quantum_state)
-                quantum_state = np.matmul(Ry(params[j][1], Omega, B, detuning), quantum_state)
+                quantum_state = np.matmul(Rx(params[0], Omega, B, detuning), quantum_state)
+                quantum_state = np.matmul(Ry(params[1], Omega, B, detuning), quantum_state)
             quantum_states_perturbed.append(quantum_state)
+            quantum_states[j] = quantum_state
         perturbed_cost = CostFunction(quantum_states_perturbed, coordinates, labels, _lambda)
-        
+        print('Perturbed cost:', perturbed_cost)
         # Calculate the gradient
         gradient[i] = (perturbed_cost - cost_value) / st
-        
+        print('Gradient:', gradient)
         # Reset the parameter
         params[i] -= st
     
