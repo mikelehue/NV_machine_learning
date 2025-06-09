@@ -10,7 +10,7 @@ Creation date: 2025-05-20
 import numpy as np
 from scipy.linalg import expm, sqrtm
 import math
-
+import matplotlib.pyplot as plt
 ##Operators##
 Sz = np.array([[1,0,0],[0,0,0],[0,0,-1]])
 Sx = np.array([[0,1,0],[1,0,1],[0,1,0]])
@@ -31,11 +31,11 @@ def Rx(alpha, Omega, B, detuning=0):
     D = 2870        #MHz, Zer-field splitting.
     gamma_e = 28024 #MHz/T electron gyromagnetic ratio
     
-    H = D*np.matmul(Sz,Sz) + gamma_e*B*Sz + (Omega/2)*Sx -(D+detuning)*np.matmul(Sz,Sz)
+    H = D*np.matmul(Sz,Sz) + gamma_e*B*Sz + (Omega/2)*Sx -(D+gamma_e*B+detuning)*np.matmul(Sz,Sz)
     
-    t = alpha/(np.pi*Omega)
+    t = alpha/(2*np.pi*Omega)
     
-    U = expm(1j*H*t)
+    U = expm(1j*(2*np.pi)*H*t)
     return U
 
 def Ry(alpha, Omega, B, detuning=0):
@@ -43,11 +43,11 @@ def Ry(alpha, Omega, B, detuning=0):
     D = 2870        #MHz, Zer-field splitting.
     gamma_e = 28024 #MHz/T electron gyromagnetic ratio
     
-    H = D*np.matmul(Sz,Sz) + gamma_e*B*Sz + (Omega/2)*Sy -(D+detuning)*np.matmul(Sz,Sz)
+    H = D*np.matmul(Sz,Sz) + gamma_e*B*Sz + (Omega/2)*Sy -(D+gamma_e*B+detuning)*np.matmul(Sz,Sz)
     
-    t = alpha/(np.pi*Omega)
+    t = alpha/(2*np.pi*Omega)
     
-    U = expm(1j*H*t)
+    U = expm(1j*(2*np.pi)*H*t)
     return U
 
 # These are the projectors over the X, Y, and Z axes of the Bloch sphere.
@@ -187,11 +187,11 @@ number_labels = 2
 # Initialize the labels
 labels = StateLabels(number_labels)
 # Choose the number of times the whole set of gates is applied
-number_iterations = 50
+number_iterations = 100
 # Choose the step for calculate the gradient
-st = 0.001
+st = 0.1
 # Choose the value of the learning rate
-lr = 0.006
+lr = 0.1
 # Choose the value of lambda for the cost function
 _lambda = 1
 # Choose the magnetic field value in Tesla
@@ -199,17 +199,49 @@ B = 0.1
 # Choose the detuning value in MHz
 detuning = 0
 # Choose the amplitude of the microwave pulse in MHz
-Omega = 10
+Omega = 100
+
+
+### Test of rotations: ###
+angle_sweep = np.linspace(0,2*np.pi, 100)
+initial_state = np.array([[0, 0, 0], [0, 1, 0], [0, 0, 0]], dtype=complex)
+for i in range(len(angle_sweep)):
+    rho = np.matmul(np.matmul(Rx(angle_sweep[i], Omega, B, detuning), initial_state),np.matrix.conjugate(Rx(angle_sweep[i], Omega, B, detuning).T))
+    rotx = ProjZ(rho)
+    prY = ProjY(rho)
+    prX = ProjX(rho) 
+    plt.scatter(angle_sweep[i], rotx)
+    plt.scatter(angle_sweep[i], prX, marker='v')
+    plt.scatter(angle_sweep[i], prY, marker = 's')
+
+plt.title('Rotation in X')
+plt.xlabel('rotation angle(rad)')
+plt.ylabel('Projections')
+plt.show()
+
+for i in range(len(angle_sweep)):
+    rho = np.matmul(np.matmul(Ry(angle_sweep[i], Omega, B, detuning), initial_state),np.matrix.conjugate(Ry(angle_sweep[i], Omega, B, detuning).T))
+    roty = ProjZ(rho)
+    prY = ProjY(rho)
+    prX = ProjX(rho)
+    plt.scatter(angle_sweep[i], roty)
+    plt.scatter(angle_sweep[i], prX, marker='v')
+    plt.scatter(angle_sweep[i], prY, marker = 's')
+plt.title('Rotation in Y')
+plt.xlabel('rotation angle(rad)')
+plt.ylabel('Projections')
+plt.show()
 
 ###############################################################
 # Initialize data set
 np.random.seed(123)
 # Set up cluster parameters
-number_clusters = 4
+number_clusters = 2
 points_per_cluster = 10
 N_points = number_clusters * points_per_cluster
-centers = [(-0.29*np.pi, 0*np.pi), (0*np.pi, 0.12*np.pi), (0.29*np.pi, 0*np.pi), (0*np.pi, -0.12*np.pi)]
-width = 0.075
+#centers = [(-0.29*np.pi, 0*np.pi), (0*np.pi, 0.12*np.pi), (0.29*np.pi, 0*np.pi), (0*np.pi, -0.12*np.pi)]
+centers = [(0.29*np.pi, 0.1*np.pi), (0.1*np.pi, 0.12*np.pi), (2*0.29*np.pi, 0*np.pi), (0*np.pi, 2*0.12*np.pi)]
+width = 0.015
 # Initialize arrays for coordinates
 coordinates = []
 
@@ -221,6 +253,8 @@ for i in range(number_clusters):
         point = np.random.normal(loc=centers[i], scale=width)
         print(point)
         coordinates.append([point[0], point[1], 0])
+        plt.scatter(point[0], point[1])
+plt.show()
 # Convert coordinates to numpy array
 coordinates = np.array(coordinates)
 
@@ -229,7 +263,7 @@ coordinates = np.array(coordinates)
 # That is the state |0> = [1, 0, 0] and the we have to apply the gates to rotate the state to the desired point in the bloch sphere
 # The gates are the Rx and Ry functions defined above
 # So we start with the state |0>
-initial_state = np.array([[1, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=complex)
+initial_state = np.array([[0, 0, 0], [0, 1, 0], [0, 0, 0]], dtype=complex)
 
 # Initialize the quantum states list
 quantum_states_list = []
@@ -262,54 +296,87 @@ fidelities, arg_fidelities = Test(quantum_states, labels)
 
 # Initialize the parameters for the optimization
 # Randomly initialize the parameters for the gates
-params = np.random.uniform(size=2) * 2 * np.pi
+params = np.random.uniform(low=0.0, high=0.5 ,size=2) * 2 * np.pi
 # Initialize the gradient
 gradient = np.zeros_like(params)
 
 # Optimization loop
+# =============================================================================
+# for iteration in range(number_iterations):
+#     # Calculate the cost function
+#     cost_value = CostFunction(quantum_states, coordinates, labels, _lambda)
+#     cost_list.append(cost_value)
+#     
+#     # Calculate the gradient
+#     for i in range(len(params)):
+#         # Perturb the parameter
+#         params[i] += st
+#         quantum_states_perturbed = []
+#         for j in range(N_points):
+#             #quantum_state = initial_state.copy()
+#             #quantum_state = quantum_states[j]
+#             quantum_state = quantum_states_list[0][j]            
+#             for k in range(number_labels):
+#                 quantum_state = np.matmul(np.matmul(Rx(params[0], Omega, B, detuning), quantum_state), np.matrix.conjugate(Rx(params[0], Omega, B, detuning).T))
+#                 quantum_state = np.matmul(np.matmul(Ry(params[1], Omega, B, detuning), quantum_state), np.matrix.conjugate(Ry(params[1], Omega, B, detuning).T))
+#             quantum_states_perturbed.append(quantum_state)
+#             quantum_states[j] = quantum_state
+#         perturbed_cost = CostFunction(quantum_states_perturbed, coordinates, labels, _lambda)
+#         print('Perturbed cost:', perturbed_cost)
+#         # Calculate the gradient
+#         gradient[i] = (perturbed_cost - cost_value) / st
+#         print('Gradient:', gradient)
+#         # Reset the parameter
+#         params[i] -= st
+#     
+#     # Update the parameters using the gradient descent step
+#     params -= lr * gradient
+#     
+#     print(f"Iteration {iteration + 1}, Cost: {cost_value}, Params: {params}")
+
+#New optimization loop for testing---Asier#
 for iteration in range(number_iterations):
-    # Calculate the cost function
-    cost_value = CostFunction(quantum_states, coordinates, labels, _lambda)
+    
+    quantum_states_unperturbed = []
+    for j in range(N_points):
+        point_state = quantum_states[j]
+        quantum_state = np.matmul(np.matmul(Rx(params[0], Omega, B, detuning), point_state), np.matrix.conjugate(Rx(params[0], Omega, B, detuning).T))
+        quantum_state = np.matmul(np.matmul(Ry(params[1], Omega, B, detuning), quantum_state), np.matrix.conjugate(Ry(params[1], Omega, B, detuning).T))
+        quantum_states_unperturbed.append(quantum_state)
+    
+    cost_value = CostFunction(quantum_states_unperturbed, coordinates, labels, _lambda)
     cost_list.append(cost_value)
     
-    # Calculate the gradient
     for i in range(len(params)):
-        # Perturb the parameter
-        params[i] += st
+        params[i] = params[i] + st
         quantum_states_perturbed = []
         for j in range(N_points):
-            #quantum_state = initial_state.copy()
-            quantum_state = quantum_states[j]            
-            for k in range(number_labels):
-                quantum_state = np.matmul(Rx(params[0], Omega, B, detuning), quantum_state)
-                quantum_state = np.matmul(Ry(params[1], Omega, B, detuning), quantum_state)
+            point_state = quantum_states[j]
+            quantum_state = np.matmul(np.matmul(Rx(params[0], Omega, B, detuning), point_state), np.matrix.conjugate(Rx(params[0], Omega, B, detuning).T))
+            quantum_state = np.matmul(np.matmul(Ry(params[1], Omega, B, detuning), quantum_state), np.matrix.conjugate(Ry(params[1], Omega, B, detuning).T))
             quantum_states_perturbed.append(quantum_state)
-            quantum_states[j] = quantum_state
         perturbed_cost = CostFunction(quantum_states_perturbed, coordinates, labels, _lambda)
-        print('Perturbed cost:', perturbed_cost)
         # Calculate the gradient
         gradient[i] = (perturbed_cost - cost_value) / st
-        print('Gradient:', gradient)
         # Reset the parameter
         params[i] -= st
-    
-    # Update the parameters using the gradient descent step
-    params -= lr * gradient
-    
+    params -= lr*gradient
     print(f"Iteration {iteration + 1}, Cost: {cost_value}, Params: {params}")
+# =============================================================================
 
 # After the optimization loop, we can print the final parameters and cost value
 print(f"Final parameters: {params}")
 print(f"Final cost value: {cost_value}")
 
 # Plot the cost function values over iterations
-import matplotlib.pyplot as plt
+
 plt.plot(cost_list)
 plt.xlabel('Iteration')
 plt.ylabel('Cost Value')
 plt.title('Cost Function Value Over Iterations')
 plt.grid()
 plt.show()
+
 
 # Now, plot the quantum states on the Bloch sphere with the arg_fidelities with different colors
 from mpl_toolkits.mplot3d import Axes3D
@@ -331,3 +398,7 @@ def plot_bloch_sphere(quantum_states, arg_fidelities):
     ax.set_title('Bloch Sphere Representation of Quantum States')
     
     plt.show()
+    
+    
+plot_bloch_sphere(labels, arg_fidelities)    
+plot_bloch_sphere(quantum_states, arg_fidelities)
