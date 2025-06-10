@@ -13,8 +13,8 @@ import math
 import matplotlib.pyplot as plt
 ##Operators##
 Sz = np.array([[1,0,0],[0,0,0],[0,0,-1]])
-Sx = np.array([[0,1,0],[1,0,1],[0,1,0]])
-Sy = np.array([[0,-1j,0],[1j,0,-1j],[0,1j,0]])
+Sx = np.array([[0,1,0],[1,0,1],[0,1,0]])*(1/np.sqrt(2))
+Sy = np.array([[0,-1j,0],[1j,0,-1j],[0,1j,0]])*(1/np.sqrt(2))
 
 #We define the rotation operations over the N Vcenter
 ##Each function retunrs th eunitary operation representing the rotation over
@@ -33,7 +33,7 @@ def Rx(alpha, Omega, B, detuning=0):
     
     H = D*np.matmul(Sz,Sz) + gamma_e*B*Sz + (Omega/2)*Sx -(D+gamma_e*B+detuning)*np.matmul(Sz,Sz)
     
-    t = alpha/(2*np.pi*Omega)
+    t = alpha/(np.sqrt(2)*np.pi*Omega)
     
     U = expm(1j*(2*np.pi)*H*t)
     return U
@@ -45,7 +45,7 @@ def Ry(alpha, Omega, B, detuning=0):
     
     H = D*np.matmul(Sz,Sz) + gamma_e*B*Sz + (Omega/2)*Sy -(D+gamma_e*B+detuning)*np.matmul(Sz,Sz)
     
-    t = alpha/(2*np.pi*Omega)
+    t = alpha/(np.sqrt(2)*np.pi*Omega)
     
     U = expm(1j*(2*np.pi)*H*t)
     return U
@@ -183,15 +183,15 @@ def CostFunction(quantum_states, coordinates, labels,_lambda):
 ############### Simulation of the cluster sorter ################
 ############### Data for the simulation ################
 # Number of labels
-number_labels = 2
+number_labels = 3
 # Initialize the labels
 labels = StateLabels(number_labels)
 # Choose the number of times the whole set of gates is applied
-number_iterations = 100
+number_iterations = 300
 # Choose the step for calculate the gradient
 st = 0.1
 # Choose the value of the learning rate
-lr = 0.1
+lr = 0.005
 # Choose the value of lambda for the cost function
 _lambda = 1
 # Choose the magnetic field value in Tesla
@@ -213,7 +213,8 @@ for i in range(len(angle_sweep)):
     plt.scatter(angle_sweep[i], rotx)
     plt.scatter(angle_sweep[i], prX, marker='v')
     plt.scatter(angle_sweep[i], prY, marker = 's')
-
+    plt.scatter(angle_sweep[i], np.trace(rho), marker = '.')
+    print(np.trace(rho))
 plt.title('Rotation in X')
 plt.xlabel('rotation angle(rad)')
 plt.ylabel('Projections')
@@ -227,6 +228,7 @@ for i in range(len(angle_sweep)):
     plt.scatter(angle_sweep[i], roty)
     plt.scatter(angle_sweep[i], prX, marker='v')
     plt.scatter(angle_sweep[i], prY, marker = 's')
+    print(np.trace(rho))
 plt.title('Rotation in Y')
 plt.xlabel('rotation angle(rad)')
 plt.ylabel('Projections')
@@ -236,12 +238,12 @@ plt.show()
 # Initialize data set
 np.random.seed(123)
 # Set up cluster parameters
-number_clusters = 2
+number_clusters = 3
 points_per_cluster = 10
 N_points = number_clusters * points_per_cluster
 #centers = [(-0.29*np.pi, 0*np.pi), (0*np.pi, 0.12*np.pi), (0.29*np.pi, 0*np.pi), (0*np.pi, -0.12*np.pi)]
-centers = [(0.29*np.pi, 0.1*np.pi), (0.1*np.pi, 0.12*np.pi), (2*0.29*np.pi, 0*np.pi), (0*np.pi, 2*0.12*np.pi)]
-width = 0.015
+centers = [(0.29*np.pi, 0.1*np.pi), (0.5*np.pi, 1*np.pi), (1*np.pi, 0.3*np.pi), (0.1*np.pi, 2*0.12*np.pi)]
+width = 0.15
 # Initialize arrays for coordinates
 coordinates = []
 
@@ -272,14 +274,16 @@ quantum_states_list = []
 quantum_states = []
 for i in range(N_points):
     # Start with the initial state
-    quantum_state = initial_state.copy()
+    quantum_state = initial_state
     # Apply the gates in the same order for all the points
     # Apply the Rx gate
     quantum_state = np.matmul(np.matmul(Rx(coordinates[i][0], Omega, B, detuning), quantum_state),np.matrix.conjugate(Rx(coordinates[i][0], Omega, B, detuning).T))
+    #print(np.trace(quantum_state))
     # Apply the Ry gate
-    quantum_state = np.matmul(np.matmul(Ry(coordinates[i][1], Omega, B, detuning), quantum_state),np.matrix.conjugate(Rx(coordinates[i][1], Omega, B, detuning).T))
+    quantum_state = np.matmul(np.matmul(Ry(coordinates[i][1], Omega, B, detuning), quantum_state),np.matrix.conjugate(Ry(coordinates[i][1], Omega, B, detuning).T))
     # Append the quantum state to the list
     quantum_states.append(quantum_state)
+    #print(np.trace(quantum_state))
 
 # We save the quantum states in a list of quantum states
 quantum_states_list.append(quantum_states)
@@ -296,7 +300,8 @@ fidelities, arg_fidelities = Test(quantum_states, labels)
 
 # Initialize the parameters for the optimization
 # Randomly initialize the parameters for the gates
-params = np.random.uniform(low=0.0, high=0.5 ,size=2) * 2 * np.pi
+params = np.random.uniform(low=0.0, high=0.1 ,size=2) * 2 * np.pi
+
 # Initialize the gradient
 gradient = np.zeros_like(params)
 
@@ -343,7 +348,7 @@ for iteration in range(number_iterations):
         quantum_state = np.matmul(np.matmul(Rx(params[0], Omega, B, detuning), point_state), np.matrix.conjugate(Rx(params[0], Omega, B, detuning).T))
         quantum_state = np.matmul(np.matmul(Ry(params[1], Omega, B, detuning), quantum_state), np.matrix.conjugate(Ry(params[1], Omega, B, detuning).T))
         quantum_states_unperturbed.append(quantum_state)
-    
+        #print(np.trace(quantum_state))
     cost_value = CostFunction(quantum_states_unperturbed, coordinates, labels, _lambda)
     cost_list.append(cost_value)
     
@@ -355,6 +360,7 @@ for iteration in range(number_iterations):
             quantum_state = np.matmul(np.matmul(Rx(params[0], Omega, B, detuning), point_state), np.matrix.conjugate(Rx(params[0], Omega, B, detuning).T))
             quantum_state = np.matmul(np.matmul(Ry(params[1], Omega, B, detuning), quantum_state), np.matrix.conjugate(Ry(params[1], Omega, B, detuning).T))
             quantum_states_perturbed.append(quantum_state)
+            #print(np.trace(quantum_state))
         perturbed_cost = CostFunction(quantum_states_perturbed, coordinates, labels, _lambda)
         # Calculate the gradient
         gradient[i] = (perturbed_cost - cost_value) / st
@@ -391,6 +397,22 @@ def plot_bloch_sphere(quantum_states, arg_fidelities):
         x, y, z = BlochCoordinates(state)
         ax.scatter(x, y, z, color=colors[arg_fidelities[i]], label=f'Point {i+1}')
     
+    # Create a Bloch sphere centered at (0.5, 0.5, 0.5) with radius 0.5
+    u, v = np.mgrid[0:2*np.pi:100j, 0:np.pi:100j]
+    x_sphere = 0.5 + 0.5 * np.cos(u) * np.sin(v)
+    y_sphere = 0.5 + 0.5 * np.sin(u) * np.sin(v)
+    z_sphere = 0.5 + 0.5 * np.cos(v)
+    
+    ax.plot_surface(x_sphere, y_sphere, z_sphere, color='lightblue', alpha=0.2, linewidth=0)
+
+    # Set axis limits and labels
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_zlim(0, 1)
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    
     # Set labels
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
@@ -399,6 +421,7 @@ def plot_bloch_sphere(quantum_states, arg_fidelities):
     
     plt.show()
     
-    
-plot_bloch_sphere(labels, arg_fidelities)    
-plot_bloch_sphere(quantum_states, arg_fidelities)
+m, arg_fidelities_labels = Test(labels, labels)
+m, arg_fidelities = Test(quantum_states_unperturbed, labels)  
+plot_bloch_sphere(labels, arg_fidelities_labels)    
+plot_bloch_sphere(quantum_states_unperturbed, arg_fidelities)
